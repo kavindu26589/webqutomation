@@ -2,211 +2,94 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
     CallToolRequestSchema,
-    ListToolsRequestSchema,
-    ListResourcesRequestSchema,
-    ReadResourceRequestSchema,
-    ErrorCode,
-    McpuError
+    ListToolsRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
 import { BrowserManager } from "./browser-manager.js";
 
 const browserManager = new BrowserManager();
 
 const server = new Server(
-    {
-        name: "playwright-mcp-server",
-        version: "1.0.0",
-    },
-    {
-        capabilities: {
-            tools: {},
-            resources: {},
-        },
-    }
+    { name: "playwright-mcp", version: "2.0.0" },
+    { capabilities: { tools: {} } }
 );
 
-// Define Tools with optimized descriptions
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return {
-        tools: [
-            {
-                name: "launch_browser",
-                description: "Launch browser.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        headless: { type: "boolean", default: true }
-                    }
-                },
-            },
-            {
-                name: "navigate",
-                description: "Navigate to URL.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        url: { type: "string" }
-                    },
-                    required: ["url"]
-                },
-            },
-            {
-                name: "click",
-                description: "Click element.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        selector: { type: "string" }
-                    },
-                    required: ["selector"]
-                },
-            },
-            {
-                name: "type",
-                description: "Type text.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        selector: { type: "string" },
-                        text: { type: "string" }
-                    },
-                    required: ["selector", "text"]
-                },
-            },
-            {
-                name: "get_accessibility_snapshot",
-                description: "Get accessibility tree (RECOMMENDED for page state).",
-                inputSchema: { type: "object", properties: {} },
-            },
-            {
-                name: "get_console_logs",
-                description: "Get console logs.",
-                inputSchema: { type: "object", properties: {} },
-            },
-            {
-                name: "get_content",
-                description: "Get full HTML (Expensive).",
-                inputSchema: { type: "object", properties: {} },
-            },
-            {
-                name: "screenshot",
-                description: "Take screenshot.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        path: { type: "string", description: "Save path" }
-                    },
-                },
-            },
-            {
-                name: "evaluate",
-                description: "Run JS.",
-                inputSchema: {
-                    type: "object",
-                    properties: {
-                        script: { type: "string" }
-                    },
-                    required: ["script"]
-                },
-            },
-            {
-                name: "close_browser",
-                description: "Close browser.",
-                inputSchema: { type: "object", properties: {} },
-            },
-        ],
-    };
-});
+/* ---------------- Tools ---------------- */
 
-// Handle Tool Calls with concise return values
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    try {
-        switch (request.params.name) {
-            case "launch_browser": {
-                const headless = (request.params.arguments as any)?.headless ?? true;
-                await browserManager.launch(headless);
-                return { content: [{ type: "text", text: "Launched" }] };
-            }
-            case "navigate": {
-                const url = (request.params.arguments as any).url;
-                await browserManager.navigate(url);
-                return { content: [{ type: "text", text: `Navigated: ${url}` }] };
-            }
-            case "click": {
-                const selector = (request.params.arguments as any).selector;
-                await browserManager.click(selector);
-                return { content: [{ type: "text", text: "Clicked" }] };
-            }
-            case "type": {
-                const { selector, text } = (request.params.arguments as any);
-                await browserManager.type(selector, text);
-                return { content: [{ type: "text", text: "Typed" }] };
-            }
-            case "get_accessibility_snapshot": {
-                const snapshot = await browserManager.getAccessibilitySnapshot();
-                return { content: [{ type: "text", text: JSON.stringify(snapshot) }] };
-            }
-            case "get_console_logs": {
-                const logs = await browserManager.getConsoleLogs();
-                return { content: [{ type: "text", text: JSON.stringify(logs) }] };
-            }
-            case "get_content": {
-                const content = await browserManager.getContent();
-                return { content: [{ type: "text", text: content }] }; // This is still large, use carefully
-            }
-            case "screenshot": {
-                const path = (request.params.arguments as any)?.path;
-                const result = await browserManager.screenshot(path);
-                return { content: [{ type: "text", text: result }] };
-            }
-            case "evaluate": {
-                const script = (request.params.arguments as any).script;
-                const result = await browserManager.evaluate(script);
-                return { content: [{ type: "text", text: String(result) }] };
-            }
-            case "close_browser": {
-                await browserManager.close();
-                return { content: [{ type: "text", text: "Closed" }] };
-            }
-            default:
-                throw new McpuError(ErrorCode.MethodNotFound, `Unknown tool: ${request.params.name}`);
-        }
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        return { isError: true, content: [{ type: "text", text: `Error: ${errorMessage}` }] };
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [
+        { name: "launch_browser", description: "Launch browser", inputSchema: { type: "object" } },
+        { name: "navigate_action", description: "Navigation actions", inputSchema: { type: "object" } },
+        { name: "mouse_action", description: "Mouse actions", inputSchema: { type: "object" } },
+        { name: "form_action", description: "Form actions", inputSchema: { type: "object" } },
+        { name: "element_action", description: "Element actions", inputSchema: { type: "object" } },
+        { name: "smart_click", description: "Self-healing click", inputSchema: { type: "object" } },
+        { name: "get_page_state", description: "Page summary", inputSchema: { type: "object" } },
+        { name: "get_accessibility_snapshot", description: "A11y tree", inputSchema: { type: "object" } },
+        { name: "evaluate_readonly", description: "Safe JS eval", inputSchema: { type: "object" } },
+        { name: "get_console_logs", description: "Console logs", inputSchema: { type: "object" } },
+        { name: "get_network_failures", description: "Network failures", inputSchema: { type: "object" } },
+        { name: "close_browser", description: "Close browser", inputSchema: { type: "object" } }
+    ]
+}));
+
+/* ---------------- Execution ---------------- */
+
+server.setRequestHandler(CallToolRequestSchema, async (req) => {
+    const a = req.params.arguments as any;
+
+    switch (req.params.name) {
+        case "launch_browser":
+            await browserManager.launch(a?.headless, a?.browserType);
+            return { content: [{ type: "text", text: "launched" }] };
+
+        case "navigate_action":
+            if (a.action === "open") await browserManager.navigate(a.url);
+            if (a.action === "reload") await browserManager.reload();
+            if (a.action === "back") await browserManager.back();
+            if (a.action === "forward") await browserManager.forward();
+            if (a.action === "new_tab") await browserManager.newTab(a.url);
+            if (a.action === "switch_tab") await browserManager.switchTab(a.tabIndex);
+            if (a.action === "close_tab") await browserManager.closeTab();
+            return { content: [{ type: "text", text: "ok" }] };
+
+        case "mouse_action":
+            await browserManager.mouseAction(a.type, a.selector, a.targetSelector, a.amount);
+            return { content: [{ type: "text", text: "ok" }] };
+
+        case "form_action":
+            await browserManager.formAction(a.type, a.selector, a.value, a.filePath);
+            return { content: [{ type: "text", text: "ok" }] };
+
+        case "element_action":
+            const res = await browserManager.elementAction(a.type, a.selector, a.attribute, a.state);
+            return { content: [{ type: "text", text: JSON.stringify(res) }] };
+
+        case "smart_click":
+            return { content: [{ type: "text", text: await browserManager.smartClick(a.selector) }] };
+
+        case "get_page_state":
+            return { content: [{ type: "text", text: JSON.stringify(await browserManager.getPageState()) }] };
+
+        case "get_accessibility_snapshot":
+            return { content: [{ type: "text", text: JSON.stringify(await browserManager.getAccessibilitySnapshot()) }] };
+
+        case "evaluate_readonly":
+            return { content: [{ type: "text", text: String(await browserManager.evaluateReadonly(a.expression)) }] };
+
+        case "get_console_logs":
+            return { content: [{ type: "text", text: JSON.stringify(await browserManager.getConsoleLogs()) }] };
+
+        case "get_network_failures":
+            return { content: [{ type: "text", text: JSON.stringify(await browserManager.getNetworkFailures()) }] };
+
+        case "close_browser":
+            await browserManager.close();
+            return { content: [{ type: "text", text: "closed" }] };
     }
+
+    throw new Error("Unknown tool");
 });
 
-// Resources
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-    return {
-        resources: [
-            {
-                uri: "playwright://page/content",
-                name: "Page Content",
-                mimeType: "text/html",
-            },
-        ],
-    };
-});
+/* ---------------- Start ---------------- */
 
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-    if (request.params.uri === "playwright://page/content") {
-        try {
-            const content = await browserManager.getContent();
-            return {
-                contents: [{ uri: request.params.uri, mimeType: "text/html", text: content }]
-            };
-        } catch (e) {
-            throw new McpuError(ErrorCode.InternalError, "Not ready");
-        }
-    }
-    throw new McpuError(ErrorCode.InvalidRequest, "Not found");
-});
-
-// Start
-const transport = new StdioServerTransport();
-server.connect(transport).catch((err) => {
-    console.error(err);
-    process.exit(1);
-});
+server.connect(new StdioServerTransport());
