@@ -51,7 +51,9 @@ npx @modelcontextprotocol/inspector node src/index.ts
 
 ## Available Tools
 
-- `launch_browser`: Launch a chromium instance.
+- `launch_browser(headless?, browser?, channel?)`: Launch a browser.
+    - `browser`: 'chromium' (default), 'firefox', or 'webkit'.
+    - `channel`: 'chrome', 'msedge' (only for chromium).
 - `navigate(url)`: Go to a URL.
 - `click(selector)`: Click an element.
 - `type(selector, text)`: Type text into an input.

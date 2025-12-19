@@ -1,0 +1,51 @@
+# Playwright MCP Rules
+
+You have access to a Playwright MCP server to control a web browser. Follow these rules for optimal performance and reliability.
+Refer to `AGENT_WORKFLOW.md` for the Planner/Generator/Healer strategies.
+
+## 🚀 Workflow Trigger
+**IF** the user provides input matching the `WORKFLOW:` layout (see `AGENT_WORKFLOW.md`):
+1.  **ACKNOWLEDGE**: State "Starting Workflow: [Name]".
+2.  **ACTIVATE**: Enter **PLANNING MODE**.
+3.  **EXECUTE**: iterate through the provided steps.
+
+## Strategic Behavior
+1.  **State Awareness**: detailed HTML is expensive.
+    -   **ALWAYS** use `get_accessibility_snapshot` first to understand the page structure. It is semantic and token-efficient.
+    -   **ONLY** use `get_content` (full HTML) if the accessibility snapshot is missing critical details or for debugging specific DOM attributes.
+2.  **Debugging**:
+    -   If an action fails or behaves unexpectedly, **IMMEDIATELY** call `get_console_logs` to check for browser-side errors.
+3.  **Browser Selection**:
+    -   Default to `chromium` if not specified.
+    -   If testing specific browser behavior, use `launch_browser({ "browser": "firefox" })` or `launch_browser({ "browser": "webkit" })`.
+    -   For "Edge" or "Chrome" branding, use `channel: "msedge"` or `channel: "chrome"`.
+
+## Modes
+
+### 1. PLANNING MODE (Default Start)
+Before performing any action that changes state:
+1.  **Explore**: Use `get_accessibility_snapshot` to discover elements.
+2.  **Verify**: Use `highlight({ "selector": "..." })` to confirm you have the right element.
+3.  **Plan**: Explain your next step based on the highlighted element.
+
+### 2. EXECUTION MODE
+Once the element is verified:
+-   Perform `click`, `type`, or `navigate`.
+-   **Context**: Trust your plan from the Planning Mode.
+
+### 3. HEALING MODE (If Action Fails)
+If a tool call returns an error (e.g., "Timeout", "Element not found"):
+1.  **STOP**: Do not retry the same selector immediately.
+2.  **Diagnose**: Call `get_console_logs` to see browser errors.
+3.  **Re-Assess**: Call `get_accessibility_snapshot` to see the *current* state (the page might have changed).
+4.  **Heal**:
+    -   If the element ID/Class changed, find a new selector based on text/role.
+    -   If the page is loading, wait (Playwright waits, but you might need to wait for a specific state).
+5.  **Retry**: Attempt the action with the corrected selector.
+
+## Common Workflows
+
+
+## Tool specific tips
+-   `evaluate`: Use this for complex data extraction that requires running JS on the page (e.g., extracting all links, LocalStorage data).
+-   `screenshot`: Use the `path` argument to save artifacts for the user to see, e.g., `screenshot({ "path": "proof_of_work.png" })`.

@@ -1,0 +1,12 @@
+{
+    "mcpServers": {
+        "playwright": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "ts-node",
+                "d:/4th Year 2nd sem/playwright/src/index.ts"
+            ]
+        }
+    }
+}
