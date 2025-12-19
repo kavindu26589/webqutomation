@@ -1,67 +1,53 @@
 # Playwright MCP Server
 
-This is a Model Context Protocol (MCP) server that exposes Playwright capabilities, allowing AI agents to control a web browser.
+This MCP server exposes comprehensive browser automation tools.
 
-## Project Structure
+## Tools
 
-- `src/index.ts`: Main server entry point.
-- `src/browser-manager.ts`: Wrapper around Playwright to manage browser state.
-- `package.json`: Dependencies and scripts.
-- `tsconfig.json`: TypeScript configuration.
+### Navigation (`navigate_action`)
+- **open**: `url`
+- **reload**
+- **back**
+- **forward**
+- **new_tab**: `url` (optional)
+- **switch_tab**: `tabIndex`
+- **close_tab**
 
-## Prerequisites
+### Mouse (`mouse_action`)
+- **click**: `selector`
+- **double_click**: `selector`
+- **right_click**: `selector`
+- **hover**: `selector`
+- **drag_drop**: `selector` (source), `target`
+- **scroll**: `amount` (optional)
 
-- Node.js (v18 or higher)
-- npm
+### Forms (`form_action`)
+- **fill**: `selector`, `value`
+- **select**: `selector`, `value`
+- **check**: `selector`
+- **uncheck**: `selector`
+- **radio**: `selector`
+- **submit**: `selector`
+- **upload**: `selector`, `filePath`
+- **clear**: `selector`
 
-## Setup
+### Elements (`element_action`)
+- **focus**: `selector`
+- **blur**: `selector`
+- **read_text**: `selector`
+- **read_value**: `selector`
+- **read_attr**: `selector`, `attribute`
+- **is_visible**: `selector`
+- **is_enabled**: `selector`
+- **wait**: `selector`, `state` ('visible', 'hidden', etc.)
 
-1.  **Install Dependencies**
-    ```bash
-    npm install
-    ```
+### Signals & State
+- **get_page_state**: URL, title, buttons, inputs.
+- **get_accessibility_snapshot**: Semantic tree.
+- **get_console_logs**: Browser logs.
+- **get_network_failures**: Failed network requests.
 
-2.  **Install Playwright Browsers**
-    ```bash
-    npx playwright install chromium
-    ```
-
-## Running the Server
-
-### Development Mode
-To run the server directly from source:
-```bash
-npm run dev
-```
-
-### Production Build
-To build and run the compiled JavaScript:
-```bash
-npm run build
-npm start
-```
-
-## Testing with MCP Inspector
-
-You can use the MCP Inspector to test the tools interactively:
-
-```bash
-npx @modelcontextprotocol/inspector node src/index.ts
-```
-
-## Available Tools
-
-- `launch_browser(headless?, browser?, channel?)`: Launch a browser.
-    - `browser`: 'chromium' (default), 'firefox', or 'webkit'.
-    - `channel`: 'chrome', 'msedge' (only for chromium).
-- `navigate(url)`: Go to a URL.
-- `click(selector)`: Click an element.
-- `type(selector, text)`: Type text into an input.
-- `get_content()`: Get the current page HTML.
-- `screenshot(path?)`: Take a screenshot.
-- `evaluate(script)`: Run JS on the page.
-- `close_browser`: Close the browser.
-
-## Capabilities
-
-- **Resources**: `playwright://page/content` allows reading the current page content as a resource.
+### Maintenance
+- **launch_browser**: `headless`, `browserType` ('chromium', 'firefox', 'webkit')
+- **close_browser**
+- **smart_click**: `selector` (Self-healing attempt)

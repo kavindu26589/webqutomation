@@ -1,53 +1,45 @@
 # Playwright Agent Workflow
 
-This MCP server enables you to act as the three standard Playwright Agents: **Planner**, **Generator**, and **Healer**.
-
 ## 1. 🎭 Planner Agent
-**Goal**: Explore the app and produce a test plan.
+**Goal**: Explore and Plan.
 
--   **Tools**: `launch_browser`, `navigate`, `get_accessibility_snapshot`, `highlight`.
+-   **Tools**: `launch_browser`, `navigate_action`, `get_page_state`, `get_accessibility_snapshot`.
 -   **Workflow**:
-    1.  Launch and Navigate to the target page.
-    2.  Use `get_accessibility_snapshot` to understand the UI structure.
-    3.  Create a plan in `specs/<scenario>.md` listing steps and expected results.
-    4.  Visual Verification: Use `highlight` to confirm selectors for key elements in your plan *before* finalizing it.
+    1.  `launch_browser({ "headless": false })`
+    2.  `navigate_action({ "action": "open", "url": "..." })`
+    3.  `get_page_state()` -> quick summary of interactive elements.
+    4.  `get_accessibility_snapshot()` -> detailed semantic tree.
 
 ## 2. 🎭 Generator Agent
-**Goal**: Transform plan into executable actions or code.
+**Goal**: Execute actions.
 
--   **Tools**: `click`, `type`, `evaluate`, `screenshot`.
+-   **Tools**: `mouse_action`, `form_action`, `element_action`.
 -   **Workflow**:
-    1.  Read the plan from `specs/`.
-    2.  **Live Verification**: Execute each step via MCP tools (`click`, `type`) to verify it works *real-time*.
-    3.  **Codify**: If successful, write the corresponding Playwright code to `tests/<scenario>.spec.ts`.
+    1.  **Interact**:
+        -   Click: `mouse_action({ "type": "click", "selector": "..." })`
+        -   Type: `form_action({ "type": "fill", "selector": "...", "value": "..." })`
+    2.  **Verify**:
+        -   Check state: `element_action({ "type": "read_text", "selector": "..." })`
 
 ## 3. 🎭 Healer Agent
-**Goal**: Repair failing steps.
+**Goal**: Recover from errors (e.g., selector not found).
 
--   **Tools**: `get_console_logs`, `get_accessibility_snapshot`.
--   **Trigger**: An MCP tool execution returns an error (e.g., Timeout, Element Not Found).
+-   **Tools**: `smart_click`, `get_console_logs`, `get_network_failures`.
+-   **Trigger**: Action fails.
 -   **Workflow**:
-    1.  **Diagnose**: Call `get_console_logs` to see if the app crashed or threw errors.
-    2.  **Inspect**: Call `get_accessibility_snapshot` to see the *current* DOM state.
-    3.  **Fix**:
-        -   If selector failed: Find a new robust selector (prefer role/text) using the snapshot.
-        -   If timing issue: Add wait logic (in code) or retry (in MCP).
-    4.  **Verify**: Retry the action with the new parameter.
+    1.  **Diagnose**: Check `get_console_logs` or `get_network_failures`.
+    2.  **Attempt Heal**: Use `smart_click({ "selector": "..." })` which tries multiple strategies (css, text, role).
+    3.  **Re-Plan**: If that fails, call `get_accessibility_snapshot()` again to find a new selector.
 
 ## 📝 Workflow Input Layout
 
-When you want to trigger a workflow in the chat, use this layout:
-
 ```markdown
-# WORKFLOW: [Name of Workflow]
+# WORKFLOW: [Name]
 
 ## Goal
-[Brief description of what to achieve]
+[Description]
 
 ## Steps
-1.  [Action] (e.g., Navigate to "https://example.com")
-2.  [Verification] (e.g., Verify "Login" button is visible)
-3.  [Action] (e.g., Click "Login")
+1.  Navigate to "..."
+2.  Click "Submit"
 ```
-
-The Agent will parse this and execute it using the **Planner** strategy.
