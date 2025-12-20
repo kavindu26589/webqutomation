@@ -4,7 +4,7 @@ import {
     CallToolRequestSchema,
     ListToolsRequestSchema
 } from "@modelcontextprotocol/sdk/types.js";
-import { BrowserManager } from "./browser-manager.js";
+import { BrowserManager } from "./browser-manager";
 
 const browserManager = new BrowserManager();
 
@@ -28,7 +28,9 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         { name: "evaluate_readonly", description: "Safe JS eval", inputSchema: { type: "object" } },
         { name: "get_console_logs", description: "Console logs", inputSchema: { type: "object" } },
         { name: "get_network_failures", description: "Network failures", inputSchema: { type: "object" } },
-        { name: "close_browser", description: "Close browser", inputSchema: { type: "object" } }
+        { name: "close_browser", description: "Close browser", inputSchema: { type: "object" } },
+        { name: "wait_for_load_state", description: "Wait for page load", inputSchema: { type: "object" } },
+        { name: "solve_captcha", description: "Attempt to solve CAPTCHA", inputSchema: { type: "object" } }
     ]
 }));
 
@@ -39,17 +41,38 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
     switch (req.params.name) {
         case "launch_browser":
-            await browserManager.launch(a?.headless, a?.browserType);
-            return { content: [{ type: "text", text: "launched" }] };
+            const headless = a?.headless ?? false; // Default to false (visible)
+            console.error(`[launch_browser] Launching with headless: ${headless}`);
+            await browserManager.launch(headless, a?.browserType);
+            return { content: [{ type: "text", text: `launched (visible: ${!headless})` }] };
+
+        case "solve_captcha":
+            return { content: [{ type: "text", text: await browserManager.solveCaptcha() }] };
+
+        case "wait_for_load_state":
+            await browserManager.waitForLoadState(a.state);
+            return { content: [{ type: "text", text: "waited" }] };
 
         case "navigate_action":
-            if (a.action === "open") await browserManager.navigate(a.url);
-            if (a.action === "reload") await browserManager.reload();
-            if (a.action === "back") await browserManager.back();
-            if (a.action === "forward") await browserManager.forward();
-            if (a.action === "new_tab") await browserManager.newTab(a.url);
-            if (a.action === "switch_tab") await browserManager.switchTab(a.tabIndex);
-            if (a.action === "close_tab") await browserManager.closeTab();
+            console.error(`[navigate_action] ${JSON.stringify(a)}`);
+            if (a.action === "open" || a.action === "navigate" || a.action === "goto" || (!a.action && a.url)) {
+                await browserManager.navigate(a.url);
+            } else if (a.action === "reload") {
+                await browserManager.reload();
+            } else if (a.action === "back") {
+                await browserManager.back();
+            } else if (a.action === "forward") {
+                await browserManager.forward();
+            } else if (a.action === "new_tab") {
+                await browserManager.newTab(a.url);
+            } else if (a.action === "switch_tab") {
+                await browserManager.switchTab(a.tabIndex);
+            } else if (a.action === "close_tab") {
+                await browserManager.closeTab();
+            } else {
+                console.error(`[navigate_action] Unknown action: ${a.action}`);
+                return { isError: true, content: [{ type: "text", text: `Unknown action: ${a.action}` }] };
+            }
             return { content: [{ type: "text", text: "ok" }] };
 
         case "mouse_action":

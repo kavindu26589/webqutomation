@@ -20,8 +20,8 @@ export class BrowserManager {
 
     /* ---------------- Lifecycle ---------------- */
 
-    async launch(headless = true, browserType: BrowserType = "chromium") {
-        if (this.browser) return;
+    async launch(headless = false, browserType: BrowserType = "chromium") {
+        if (this.browser && this.browser.isConnected()) return;
 
         const launcher =
             browserType === "firefox"
@@ -30,7 +30,17 @@ export class BrowserManager {
                     ? webkit
                     : chromium;
 
-        this.browser = await launcher.launch({ headless });
+        this.browser = await launcher.launch({
+            headless,
+            args: ["--disable-blink-features=AutomationControlled", "--no-sandbox", "--disable-infobars"]
+        });
+        this.browser.on("disconnected", () => {
+            this.browser = null;
+            this.context = null;
+            this.page = null;
+            this.pages = [];
+        });
+
         this.context = await this.browser.newContext();
         this.page = await this.context.newPage();
         this.pages = [this.page];
@@ -40,6 +50,7 @@ export class BrowserManager {
 
     async close() {
         await this.browser?.close();
+        // State cleanup handled by disconnected event, but safe to clear here too
         this.browser = null;
         this.context = null;
         this.page = null;
@@ -49,7 +60,17 @@ export class BrowserManager {
     }
 
     private ensurePage(): Page {
-        if (!this.page) throw new Error("Browser not initialized");
+        if (!this.page || this.page.isClosed()) {
+            // If we have pages but current is closed, try to switch
+            if (this.pages.length > 0) {
+                const openPage = this.pages.find(p => !p.isClosed());
+                if (openPage) {
+                    this.page = openPage;
+                    return this.page;
+                }
+            }
+            throw new Error("Browser not initialized or page closed");
+        }
         return this.page;
     }
 
@@ -211,20 +232,23 @@ export class BrowserManager {
     async smartClick(selector: string) {
         const page = this.ensurePage();
         const strategies = [
-            () => page.locator(selector),
-            () => page.getByRole("button", { name: selector }),
-            () => page.getByText(selector)
+            { name: "locator", fn: () => page.locator(selector) },
+            { name: "role", fn: () => page.getByRole("button", { name: selector }) },
+            { name: "text", fn: () => page.getByText(selector) }
         ];
 
         for (const s of strategies) {
             try {
-                const loc = s().first();
+                const loc = s.fn().first();
                 await loc.waitFor({ state: "visible", timeout: 3000 });
                 await loc.click();
-                return "clicked";
-            } catch { }
+                console.log(`[smart_click] Successfully clicked using strategy: ${s.name}`);
+                return `Clicked element using '${s.name}' strategy matching '${selector}'`;
+            } catch (e) {
+                // console.log(`[smart_click] Strategy ${s.name} failed: ${e}`);
+            }
         }
-        throw new Error("smartClick failed");
+        throw new Error(`smartClick failed to find element: ${selector}`);
     }
 
     /* ---------------- Page State ---------------- */
@@ -241,6 +265,7 @@ export class BrowserManager {
     }
 
     async getAccessibilitySnapshot() {
+        // @ts-ignore
         return this.ensurePage().accessibility.snapshot({ interestingOnly: true });
     }
 
@@ -258,5 +283,47 @@ export class BrowserManager {
 
     async getNetworkFailures() {
         return this.networkFailures;
+    }
+
+    /* ---------------- Wait ---------------- */
+
+    async waitForLoadState(state: "load" | "domcontentloaded" | "networkidle" = "networkidle") {
+        await this.ensurePage().waitForLoadState(state);
+    }
+
+    /* ---------------- Captcha ---------------- */
+
+    async solveCaptcha() {
+        const page = this.ensurePage();
+        console.log("[solve_captcha] Attempting to find and solve CAPTCHA...");
+
+        // Strategy 1: Google reCAPTCHA v2 (Checkbox)
+        // Usually inside an iframe with src containing 'recaptcha/api2/anchor'
+        const frames = page.frames();
+        const recaptchaFrame = frames.find(f => f.url().includes("recaptcha/api2/anchor"));
+
+        if (recaptchaFrame) {
+            console.log("[solve_captcha] Found reCAPTCHA frame. Attempting to click checkbox...");
+            try {
+                const checkbox = recaptchaFrame.locator(".recaptcha-checkbox-border, #recaptcha-anchor");
+                await checkbox.waitFor({ state: "visible", timeout: 5000 });
+                await checkbox.click();
+                return "Clicked reCAPTCHA checkbox. Please wait for verification.";
+            } catch (e) {
+                console.error("[solve_captcha] Failed to click reCAPTCHA checkbox:", e);
+                return "Found reCAPTCHA but failed to click it.";
+            }
+        }
+
+        // Strategy 2: Simple "I'm not a robot" text search (fallback)
+        try {
+            const checkbox = page.getByText("I'm not a robot", { exact: false });
+            if (await checkbox.isVisible()) {
+                await checkbox.click();
+                return "Clicked 'I'm not a robot' text.";
+            }
+        } catch { }
+
+        return "No known CAPTCHA found or solved.";
     }
 }
