@@ -6,7 +6,7 @@
                 "-y",
                 "ts-node",
                 "-T",
-                "d:/4th Year 2nd sem/playwright/src/index.ts"
+                "d:/webqutomation-main/src/index.ts"
             ]
         }
     }
