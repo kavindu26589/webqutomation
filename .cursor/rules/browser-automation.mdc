@@ -1,1 +1,81 @@
+description: Rules for using the Playwright MCP server for browser automation
+globs: **/*.ts, **/*.js, **/*.html, **/*.md
+---
+# Playwright MCP Rules
+
+You have access to a Playwright MCP server to control a web browser. Follow these rules for optimal performance and reliability.
+Refer to `AGENT_WORKFLOW.md` for the Planner/Generator/Healer strategies.
+
+## 🚀 Trigger
+**IF** the user asks to perform browser automation, web testing, or navigation (e.g., "Launch browser", "Go to...", "Test this page"):
+1.  **ACKNOWLEDGE**: Confirm the action.
+2.  **ACTIVATE**: Use the tools defined below.
+3.  **EXECUTE**: Follow the **Inspect-Then-Act** loop:
+    -   **Step A**: `get_accessibility_snapshot` (Refer to DOM).
+    -   **Step B**: Identify target element from snapshot.
+    -   **Step C**: Perform action.
+    -   **Step D**: `wait_for_load_state` (if needed).
+
+## Strategic Behavior
+1.  **State Awareness**: detailed HTML is expensive.
+    -   **ALWAYS** use `get_accessibility_snapshot` first to understand the page structure. It is semantic and token-efficient.
+    -   **ONLY** use `get_content` (full HTML) if the accessibility snapshot is missing critical details or for debugging specific DOM attributes.
+2.  **Debugging**:
+    -   If an action fails or behaves unexpectedly, **IMMEDIATELY** call `get_console_logs` to check for browser-side errors.
+3.  **Browser Selection**:
+    -   Default to `chromium` if not specified.
+    -   **VISIBILITY**: Always set `headless: false` in `launch_browser` tools to ensure the browser is visible to the user.
+    -   If testing specific browser behavior, use `launch_browser({ "browser": "firefox", "headless": false })`.
+
+## Modes
+
+### 1. PLANNING MODE (Default Start)
+Before performing any action that changes state:
+1.  **Explore**: Use `get_accessibility_snapshot` to discover elements.
+2.  **Verify**: Use `highlight({ "selector": "..." })` to confirm you have the right element.
+3.  **Plan**: Explain your next step based on the highlighted element.
+
+### 2. EXECUTION MODE
+1.  **INSPECT FIRST**: Before clicking or typing, **ALWAYS** call `get_accessibility_snapshot` to see what is currently on the page.
+2.  **Verify Selector**: Don't guess. Use the roles/names you see in the snapshot.
+3.  **Act**: Perform `click`, `type`, or `navigate`.
+4.  **Context**: Trust current DOM state over assumptions.
+
+### 3. HEALING MODE (If Action Fails)
+If a tool call returns an error (e.g., "Timeout", "Element not found"):
+1.  **STOP**: Do not retry the same selector immediately.
+2.  **Diagnose**: Call `get_console_logs` to see browser errors.
+3.  **Re-Assess**: Call `get_accessibility_snapshot` to see the *current* state (the page might have changed).
+4.  **Heal**:
+    -   If the element ID/Class changed, find a new selector based on text/role.
+    -   If the page is loading, wait (Playwright waits, but you might need to wait for a specific state).
+5.  **Retry**: Attempt the action with the corrected selector.
+
+### 4. PREVENTING REDUNDANT ACTIONS
+-   **DO NOT** click the same element twice in a row unless you explicitly intend to double-click (use `mouse_action` with `dblclick` for that).
+-   If a click seems to have no effect:
+    1.  Call `get_page_state` or `get_accessibility_snapshot` to verify if the page changed.
+    2.  Check `get_console_logs` for errors.
+    3.  Only then try a different selector or strategy.
+
+### 4. SYNCHRONIZATION (CRITICAL)
+-   **AUTONOMOUSLY INSERT WAITS**: The user will NOT explicitly tell you to wait. It is YOUR responsibility to assume every navigation or form submission requires a wait.
+-   When performing actions that trigger a page load (e.g., clicking "Login", "search", "Submit", or navigating):
+    1.  Perform the action.
+    2.  **IMMEDIATELY** call `wait_for_load_state({ "state": "networkidle" })`.
+    3.  This ensures the page is fully ready before you attempt the next step.
+
+### 5. CAPTCHA HANDLING
+-   If you detect a CAPTCHA (e.g., "I'm not a robot", reCAPTCHA iframe):
+    1.  **Call `solve_captcha`**. This tool attempts to find and click the reCAPTCHA checkbox automatically.
+    2.  If `solve_captcha` returns success, wait for the challenge to resolve (`wait_for_load_state`).
+    3.  If it detects a complex puzzle (images), **PAUSE and notify the user** to solve it manually, then retry.
+
+## Common Workflows
+
+
+
+## Tool specific tips
+-   `evaluate`: Use this for complex data extraction that requires running JS on the page (e.g., extracting all links, LocalStorage data).
+-   `screenshot`: Use the `path` argument to save artifacts for the user to see, e.g., `screenshot({ "path": "proof_of_work.png" })`.
 
