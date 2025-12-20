@@ -1,0 +1,13 @@
+{
+    "mcpServers": {
+        "playwright": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "ts-node",
+                "-T",
+                "d:/webqutomation-main/src/index.ts"
+            ]
+        }
+    }
+}
