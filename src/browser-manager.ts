@@ -251,6 +251,29 @@ export class BrowserManager {
         throw new Error(`smartClick failed to find element: ${selector}`);
     }
 
+    async smartFill(selector: string, value: string) {
+        const page = this.ensurePage();
+        const strategies = [
+            { name: "locator", fn: () => page.locator(selector) },
+            { name: "label", fn: () => page.getByLabel(selector) },
+            { name: "placeholder", fn: () => page.getByPlaceholder(selector) }
+        ];
+
+        for (const s of strategies) {
+            try {
+                const loc = s.fn().first();
+                // Check for visibility to confirm it's a good candidate
+                await loc.waitFor({ state: "visible", timeout: 3000 });
+                await loc.fill(value);
+                console.log(`[smart_fill] Successfully filled using strategy: ${s.name}`);
+                return `Filled element using '${s.name}' strategy matching '${selector}'`;
+            } catch (e) {
+                // Continue to next strategy
+            }
+        }
+        throw new Error(`smartFill failed to find element: ${selector}`);
+    }
+
     /* ---------------- Page State ---------------- */
 
     async getPageState() {
@@ -267,6 +290,14 @@ export class BrowserManager {
     async getAccessibilitySnapshot() {
         // @ts-ignore
         return this.ensurePage().accessibility.snapshot({ interestingOnly: true });
+    }
+
+    /* ---------------- Visual ---------------- */
+
+    async takeScreenshot(name?: string, fullPage = false) {
+        const page = this.ensurePage();
+        const buffer = await page.screenshot({ fullPage: fullPage });
+        return buffer.toString("base64");
     }
 
     /* ---------------- Read-only Eval ---------------- */

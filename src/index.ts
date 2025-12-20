@@ -23,6 +23,8 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         { name: "form_action", description: "Form actions", inputSchema: { type: "object" } },
         { name: "element_action", description: "Element actions", inputSchema: { type: "object" } },
         { name: "smart_click", description: "Self-healing click", inputSchema: { type: "object" } },
+        { name: "smart_fill", description: "Smart time-saving form fill", inputSchema: { type: "object" } },
+        { name: "take_screenshot", description: "Take screenshot", inputSchema: { type: "object" } },
         { name: "get_page_state", description: "Page summary", inputSchema: { type: "object" } },
         { name: "get_accessibility_snapshot", description: "A11y tree", inputSchema: { type: "object" } },
         { name: "evaluate_readonly", description: "Safe JS eval", inputSchema: { type: "object" } },
@@ -89,6 +91,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
         case "smart_click":
             return { content: [{ type: "text", text: await browserManager.smartClick(a.selector) }] };
+
+        case "smart_fill":
+            return { content: [{ type: "text", text: await browserManager.smartFill(a.selector, a.value) }] };
+
+        case "take_screenshot":
+            return { content: [{ type: "text", text: "Screenshot taken" }, { type: "image", data: await browserManager.takeScreenshot(a.name, a.fullPage), mimeType: "image/png" }] };
 
         case "get_page_state":
             return { content: [{ type: "text", text: JSON.stringify(await browserManager.getPageState()) }] };
